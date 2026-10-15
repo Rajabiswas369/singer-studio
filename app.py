@@ -66,8 +66,13 @@ style = st.selectbox("Art style", list(imagegen.STYLES))
 provider = st.selectbox("AI image service", imagegen.PROVIDERS)
 if not imagegen.key_available(provider):
     st.warning(
-        f"{provider} needs the {imagegen.ENV_KEYS[provider]} environment variable set "
-        "before you start the app. Pollinations needs no key."
+        f"{provider} needs {imagegen.ENV_KEYS[provider]} set (environment variable locally, "
+        "or in Streamlit Cloud -> Settings -> Secrets). Pollinations needs no key."
+    )
+if style in imagegen._STABILITY_ONLY_STYLES and provider != "Stability AI":
+    st.warning(
+        "**Renaissance Fine Art** style requires **Stability AI** as the image service. "
+        "Please change the 'AI image service' above to Stability AI."
     )
 scenes_n = st.slider("Number of AI scenes", 2, 12, 6, help="More scenes = more variety, slower to generate")
 bg_up = st.file_uploader("...or use your own background images instead of AI", type=IMAGE_TYPES, accept_multiple_files=True)
@@ -126,7 +131,12 @@ if st.button("Create video", type="primary"):
                 status.write(f"AI is drawing {n_scenes} scenes with {provider}")
                 prompts = imagegen.build_prompts(title.strip(), lyrics, theme.strip(), style, mood.strip(), n_scenes)
                 gen_bar = st.progress(0.0)
-                scene_paths = imagegen.generate_scenes(prompts, provider, tmp, width, height, gen_bar.progress)
+                gen_errors: list[str] = []
+                scene_paths = imagegen.generate_scenes(
+                    prompts, provider, tmp, width, height, gen_bar.progress, gen_errors
+                )
+                if gen_errors:
+                    st.warning(f"{provider} problems:\n\n" + "\n".join(f"- {e}" for e in gen_errors[:5]))
                 if not scene_paths:
                     st.warning("AI image service did not respond - using the animated gradient background instead.")
 
